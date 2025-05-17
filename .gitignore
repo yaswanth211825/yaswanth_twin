@@ -1,0 +1,3 @@
+env/
+embeddings_cache.json
+*.so
