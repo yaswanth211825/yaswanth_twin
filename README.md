@@ -177,4 +177,4 @@ For issues and questions:
 
 ---
 
-**Note**: This system creates a digital twin with a specific personality. Use responsibly and ensure all interactions are appropriate and consensual. 
+**Note**: This system creates a digital twin with a specific personality. Use responsibly and ensure all interactions are appropriate and consensual.
