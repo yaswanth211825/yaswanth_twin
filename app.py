@@ -1,13 +1,16 @@
 from flask import Flask, request, jsonify, render_template_string
+import os
+import threading
 
 app = Flask(__name__)
 
-# Global state dictionary
+# Thread-safe global state dictionary with lock
 pending_message = {
     "indu_message": "",
     "yaswanth_reply": "",
     "approved": False
 }
+message_lock = threading.Lock()
 
 # HTML template for the review page
 review_page_template = """
@@ -116,10 +119,11 @@ def generate_update_message():
     if not indu_message or not yaswanth_reply:
         return jsonify({"status": "error", "message": "Both indu_message and yaswanth_reply required"}), 400
 
-    # Update global pending message
-    pending_message["indu_message"] = indu_message
-    pending_message["yaswanth_reply"] = yaswanth_reply
-    pending_message["approved"] = False
+    # Update global pending message with thread safety
+    with message_lock:
+        pending_message["indu_message"] = indu_message
+        pending_message["yaswanth_reply"] = yaswanth_reply
+        pending_message["approved"] = False
 
     # Respond with reply so the client gets the message immediately
     return jsonify({
@@ -131,18 +135,22 @@ def generate_update_message():
 @app.route('/', methods=['GET'])
 def review_page():
     # Render the review page with the current pending_message
+    with message_lock:
+        indu_msg = pending_message["indu_message"]
+        yaswanth_reply = pending_message["yaswanth_reply"]
     return render_template_string(review_page_template, 
-                                  indu_message=pending_message["indu_message"], 
-                                  yaswanth_reply=pending_message["yaswanth_reply"])
+                                  indu_message=indu_msg, 
+                                  yaswanth_reply=yaswanth_reply)
 
 @app.route('/', methods=['POST'])
 def root_update_message():
     # Accept JSON data and update the global pending_message
     data = request.get_json()
     if data and "indu_message" in data and "yaswanth_reply" in data:
-        pending_message["indu_message"] = data["indu_message"]
-        pending_message["yaswanth_reply"] = data["yaswanth_reply"]
-        pending_message["approved"] = False
+        with message_lock:
+            pending_message["indu_message"] = data["indu_message"]
+            pending_message["yaswanth_reply"] = data["yaswanth_reply"]
+            pending_message["approved"] = False
         return jsonify({"status": "success", "message": "Message updated successfully"}), 200
     return jsonify({"status": "error", "message": "Invalid data"}), 400
 
@@ -151,18 +159,24 @@ def approve_message():
     # Accept the edited yaswanth_reply and mark the message as approved
     edited_reply = request.form.get("yaswanth_reply")
     if edited_reply is not None:
-        pending_message["yaswanth_reply"] = edited_reply
-        pending_message["approved"] = True
+        with message_lock:
+            pending_message["yaswanth_reply"] = edited_reply
+            pending_message["approved"] = True
         return jsonify({"status": "success", "message": "Message approved successfully"}), 200
     return jsonify({"status": "error", "message": "Invalid data"}), 400
 
 @app.route('/status', methods=['GET'])
 def status():
     # Return the current status of the pending_message
+    with message_lock:
+        approved = pending_message["approved"]
+        yaswanth_reply = pending_message["yaswanth_reply"]
     return jsonify({
-        "approved": pending_message["approved"],
-        "yaswanth_reply": pending_message["yaswanth_reply"]
+        "approved": approved,
+        "yaswanth_reply": yaswanth_reply
     }), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use environment variable to control debug mode
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='127.0.0.1', port=5000)
