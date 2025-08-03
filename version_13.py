@@ -12,7 +12,12 @@ from threading import Lock
 
 # Load API key from .env
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("❌ Error: OPENAI_API_KEY not found in environment variables.")
+    print("Please create a .env file with your OpenAI API key.")
+    sys.exit(1)
+client = OpenAI(api_key=api_key)
 
 # File paths
 EMBEDDING_CACHE_PATH = "embeddings_cache.json"
@@ -52,11 +57,16 @@ def get_gpt_embedding(text, model="text-embedding-3-small"):
             print(f"✅ Cache hit: {text[:30]}...")
             return embedding_cache[key]
     print(f"⏳ Cache miss: {text[:30]}...")
-    response = client.embeddings.create(model=model, input=[text])
-    embedding = response.data[0].embedding
-    with cache_lock:
-        embedding_cache[key] = embedding
-    return embedding
+    try:
+        response = client.embeddings.create(model=model, input=[text])
+        embedding = response.data[0].embedding
+        with cache_lock:
+            embedding_cache[key] = embedding
+        return embedding
+    except Exception as e:
+        print(f"❌ Error getting embedding: {e}")
+        # Return a zero vector as fallback
+        return [0.0] * 1536  # text-embedding-3-small dimension
 
 # 🗂 Load chat history
 def load_chat_history(file_path):
@@ -126,13 +136,16 @@ def generate_reply(similar_convos, indu_message):
 
     messages.append({"role": "user", "content": indu_message})
 
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini-2025-04-14",
-        messages=messages,
-        temperature=0.7
-    )
-
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"❌ Error generating reply: {e}")
+        return "Sorry, I encountered an error while generating a response. Please try again."
 
 # 💾 Save interaction
 def save_interaction(file_path, indu_message, ai_reply):
