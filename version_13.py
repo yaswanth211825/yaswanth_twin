@@ -101,7 +101,7 @@ def embed_all_chat_history(history, use_threads=True):
     print("🧠 Embedding cache rebuilt.")
 
 # 🔍 Find similar chats
-def retrieve_similar_chats(history, new_message, top_k=25):
+def retrieve_similar_chats(history, new_message, top_k=5):
     new_emb = get_gpt_embedding(new_message)
     sims = []
     for convo in history:
@@ -127,7 +127,7 @@ def generate_reply(similar_convos, indu_message):
     messages.append({"role": "user", "content": indu_message})
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4.1-mini-2025-04-14",
         messages=messages,
         temperature=0.7
     )
