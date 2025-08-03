@@ -186,6 +186,9 @@ if __name__ == "__main__":
         try:
             print("📨 Sending to review UI...")
             response = requests.post(url_generate, json=payload)
+            print(f"🔍 Response status: {response.status_code}")
+            print(f"🔍 Response text: {response.text}")
+            
             if response.status_code == 200:
                 print("⏳ Waiting for approval on UI...")
 
@@ -204,5 +207,6 @@ if __name__ == "__main__":
                     time.sleep(2)
             else:
                 print(f"❌ Review UI error: {response.status_code}")
+                print(f"❌ Response body: {response.text}")
         except Exception as e:
             print(f"❌ Error during review UI flow: {e}")
